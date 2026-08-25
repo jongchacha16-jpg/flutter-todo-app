@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/todo.dart';
 import '../providers/todo_provider.dart';
+import '../utils/category_classifier.dart';
 import '../utils/category_style.dart';
 
 class AddEditTodoScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _AddEditTodoScreenState extends State<AddEditTodoScreen> {
   String? _selectedCategory;
   DateTime? _dueDate;
   bool _showCategoryError = false;
+  bool _categoryAutoSelected = false;
 
   bool get _isEditing => widget.todo != null;
 
@@ -31,13 +33,28 @@ class _AddEditTodoScreenState extends State<AddEditTodoScreen> {
     _memoController = TextEditingController(text: widget.todo?.memo ?? '');
     _selectedCategory = widget.todo?.category;
     _dueDate = widget.todo?.dueDate;
+    if (!_isEditing) {
+      _titleController.addListener(_onTitleChanged);
+    }
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_onTitleChanged);
     _titleController.dispose();
     _memoController.dispose();
     super.dispose();
+  }
+
+  void _onTitleChanged() {
+    if (_selectedCategory != null && !_categoryAutoSelected) return;
+    final suggestion = suggestCategory(_titleController.text);
+    if (suggestion == _selectedCategory) return;
+    setState(() {
+      _selectedCategory = suggestion;
+      _categoryAutoSelected = suggestion != null;
+      if (suggestion != null) _showCategoryError = false;
+    });
   }
 
   String _formatDate(DateTime date) {
@@ -115,7 +132,21 @@ class _AddEditTodoScreenState extends State<AddEditTodoScreen> {
               },
             ),
             const SizedBox(height: 20),
-            const Text('카테고리'),
+            Row(
+              children: [
+                const Text('카테고리'),
+                if (_categoryAutoSelected) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '(자동 분류됨)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -128,6 +159,7 @@ class _AddEditTodoScreenState extends State<AddEditTodoScreen> {
                   onSelected: (_) {
                     setState(() {
                       _selectedCategory = category;
+                      _categoryAutoSelected = false;
                       _showCategoryError = false;
                     });
                   },
